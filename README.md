@@ -5,6 +5,14 @@ Puppet configuration for a deployable jmeter loadtesting cluster
 
 Installation
 ------------
+
+Quick Install
+-------------
+
+```
+curl -sSL https://raw.githubusercontent.com/fiasco/loadtest-framework/master/quickinstall.sh | sh
+```
+
 First off, you'll need to install puppet & git on each VM
 
 ```
