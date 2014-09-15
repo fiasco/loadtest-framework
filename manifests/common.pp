@@ -54,14 +54,14 @@ exec { "extract_jmeter_plugins":
 }
 
 file { "/tmp/jmeter":
-  source => 'puppet://files/jmeter',
+  source => 'puppet:///files/jmeter',
   owner => 'jmeter',
   group => 'jmeter',
   mode => 640,
 }
 
 file { "/tmp/jmeter-server":
-  source => 'puppet://files/jmeter-server',
+  source => 'puppet:///files/jmeter-server',
   owner => 'jmeter',
   group => 'jmeter',
   mode => 640,
