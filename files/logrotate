@@ -1,0 +1,3 @@
+/var/log/jmeter/ideaden-loadtest.log {
+        rotate 100
+}
