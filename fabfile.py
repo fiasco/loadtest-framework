@@ -41,6 +41,11 @@ def run_slaves():
   with cd('/home/jmeter/apache-jmeter/bin'):
     run('screen -dmS jmeter-session ./jmeter-server -n', pty=False)
 
+def upload_jmx(jmx):
+  env.user = 'jmeter'
+  env.key_filename = 'files/jmeter-id_rsa'
+  put(jmx, '/home/jmeter')
+
 def run_master(jmx, slaves):
   env.user = 'jmeter'
   env.key_filename = 'files/jmeter-id_rsa'
