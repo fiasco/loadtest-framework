@@ -30,12 +30,12 @@ def setup():
     run('chown jmeter -R /home/jmeter')
     run('chmod 700 /home/jmeter/.ssh')
 
-def screen_kill():
+def slaves_stop():
   env.user = 'jmeter'
   env.key_filename = 'files/jmeter-id_rsa'
   run('screen -X -S jmeter-session quit')
 
-def run_slaves():
+def slaves_start():
   env.user = 'jmeter'
   env.key_filename = 'files/jmeter-id_rsa'
   with cd('/home/jmeter/apache-jmeter/bin'):
