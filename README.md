@@ -1,33 +1,61 @@
 loadtest-framework
 ==================
 
-Puppet configuration for a deployable jmeter loadtesting cluster
+Fabric configuration for a deployable jmeter loadtesting cluster
 
 Installation
 ------------
 
-Quick Install
--------------
+You'll need [Fabric](http://www.fabfile.org/), a python deployment tool. This can be done through the Python package manager, pip.
 
 ```
-curl -sSL https://raw.githubusercontent.com/fiasco/loadtest-framework/master/quickinstall.sh | sh
+pip install fabric
 ```
 
-First off, you'll need to install puppet & git on each VM
+
+Usage
+-----
+Before you use this tool, you need to have your servers available. You should have:
+* 1 master jmeter server
+* 1 or more slave jmeter servers
+* The ability to login to the servers as root
+* All servers are connected via a local network (private networking or other)
+
+### Setup the jmeter servers
+Checkout this repository
 
 ```
-apt-get install puppet git
+git clone git@github.com:fiasco/loadtest-framework.git 
 ```
 
-Then checkout this repository inplace of the puppet repository on the local filesystem
+(Optional) Setup ssh keys to override the ones in this repository as they are insecure since they are openly available.
 
 ```
-rm /etc/puppet
-git clone https://github.com/fiasco/loadtest-framework.git puppet
+cd loadtest-framework
+ssh key-gen -f files/jmeter-id_rsa
 ```
 
-Install jmeter and plugins with user account and logging directory
+Run setup to install all the tech needed on the servers and the ssh access keys for jmeter.
 
 ```
-puppet apply /etc/puppet/manifests/common.pp
+fab -H <jmeter_master>,<jmeter_slave_1>,... setup
 ```
+
+### Initialise the Jmeter Slaves
+Kick off the jmeter slaves in screen sessions
+
+```
+fab -H <jmeter_slave_1>,... run_slaves
+```
+
+### Run the load test on the Jmeter master
+This is going to be better implemented with fabric but for now, obtain ssh command for the jmeter server:
+
+```
+fab -H <jmeter_master> ssh
+ssh -i files/jmeter-id_rsa jmeter@<jmeter_master>
+screen
+./apache-jmeter/bin/jmeter -t <loadtest>.jmx -n -R <jmeter_slave_1_internal_ip>,....
+```
+
+
