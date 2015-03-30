@@ -21,11 +21,17 @@ sudo gem install tugboat
 
 ## Usage
 
-Create a yaml file called <code>config.yaml</code> in this directory. Inside it, you should put your [Digital Ocean Token](https://www.digitalocean.com/community/tutorials/how-to-use-the-digitalocean-api-v2) and SSH Key ID
+Create a yaml file called <code>config.yaml</code> in this directory. Inside it, you should put your [Digital Ocean Token](https://www.digitalocean.com/community/tutorials/how-to-use-the-digitalocean-api-v2) and SSH key ID
 
 ```
 ssh_key: 123456
 token: 77e027c7447f468068a7d4fea41e7149a75a94088082c66fcf555de3977f69d3
+```
+
+Your SSH key ID can be found by visiting the [legacy API page](https://cloud.digitalocean.com/generate_api_key) to find your client ID and API key (version 1). Then a simple cURL request can get your SSH key ID:
+
+```
+curl -sL 'https://api.digitalocean.com/ssh_keys/?client_id=[CLIENT_ID]&api_key=[API_KEY_V1]'
 ```
 
 ### Create a JMeter Cluster
