@@ -46,16 +46,8 @@ def _load_config(**kwargs):
     with open(config_filename) as config_file:
         return loader.load(config_file)
 
-def _write_config(data):
+def _write_config(config):
     config_filename = 'config.yaml'
-    config = _load_config()
-    cluster = []
-
-    for server in data.keys():
-        cluster.append(server)
-
-    config.update(data)
-    config['cluster'] = cluster
 
     if YAML_AVAILABLE:
         loader = yaml
@@ -66,57 +58,33 @@ def _write_config(data):
     with open(config_filename, "w") as config_file:
       config_file.write(loader.dump(config, default_flow_style=False))
 
-def hosts(*args, **kwargs):
-    """Set destination servers or server groups by comma delimited list of names"""
-    # Load config
-    config = _load_config(**kwargs)
-    # If no arguments were recieved, print a message with a list of available configs.
-    if not args:
-        print 'No server name given. Available configs:'
-        for key in config['cluster']:
-            print colors.green('\t%s' % key)
-
-    # Create `group` - a dictionary, containing copies of configs for selected servers. Server hosts
-    # are used as dictionary keys, which allows us to connect current command destination host with
-    # the correct config. This is important, because somewhere along the way fabric messes up the
-    # hosts order, so simple list index incrementation won't suffice.
+def _load_hosts():
+  config = _load_config()
+  if 'servers' in config:
     env.group = {}
-    # For each given server name
-    for name in args:
-        #  Recursive function call to retrieve all server records. If `name` is a group(e.g. `all`)
-        # - get it's members, iterate through them and create `group`
-        # record. Else, get fields from `name` server record.
-        # If requested server is not in the settings dictionary output error message and list all
-        # available servers.
-        _build_group(name, config)
-
-
-    # Copy server hosts from `env.group` keys - this gives us a complete list of unique hosts to
-    # operate on. No host is added twice, so we can safely add overlaping groups. Each added host is
-    # guaranteed to have a config record in `env.group`.
+    for key in config['servers']:
+      server = config['servers'][key]
+      env.group[server['host']] = server
     env.hosts = env.group.keys()
+  else:
+    print colors.yellow("No hosts found to load.")
 
-def _build_group(name, servers):
-    """Recursively walk through servers dictionary and search for all server records."""
-    # We're going to reference server a lot, so we'd better store it.
-    server = servers.get(name, None)
-    # If `name` exists in servers dictionary we
-    if server:
-        # check whether it's a group by looking for `members`
-        if isinstance(server, list):
-            if fabric.state.output['debug']:
-                    puts("%s is a group, getting members" % name)
-            for item in server:
-                # and call this function for each of them.
-                _build_group(item, servers)
-        # When, finally, we dig through to the standalone server records, we retrieve
-        # configs and store them in `env.group`
-        else:
-            if fabric.state.output['debug']:
-                    puts("%s is a server, filling up env.group" % name)
-            env.group[server['host']] = server
+def cluster():
+  """Setup the cluster for parallel commands"""
+  _load_hosts()
+  env.parallel = True
+
+def hosts():
+    """List the servers and IPs available to the cluster."""
+    # Load config
+    config = _load_config()
+    # If no arguments were recieved, print a message with a list of available configs.
+    if 'servers' in config:
+        for key in config['servers']:
+            print colors.green('%s\t%s' % (key, config['servers'][key]['host']))
     else:
-        print colors.red('Error. "%s" config not found. Run `fab s` to list all available configs' % name)
+      print colors.red('No hosts available. Try create some first.')
+
 
 def _setup(task):
     """
@@ -126,6 +94,7 @@ def _setup(task):
         `env.owner` instead of `env.group[env.host]['owner']`
 
     """
+    _load_config()
     def task_with_setup(*args, **kwargs):
         # If `s:server` was run before the current command - then we should copy values to
         # `env`. Otherwise, hosts were passed through command line with `fab -H host1,host2
@@ -148,17 +117,52 @@ def _setup(task):
 
 @_setup
 
+@parallel
+def debug():
+  config = _load_config()
+  # pprint.pprint(config)
+  try:
+    droplet = digitalocean.Droplet(token=config['token'], id=env.id)
+    droplet.load()
+    actions = droplet.get_actions()
+    for action in actions:
+      if action.type == 'create' and action.status == 'completed':
+        print colors.green("%s %s %s" % (droplet.name, action.type, action.status))
+  except Exception:
+    print colors.red("Failed to load server.")
+    pass
+
 def _setup_host():
+  _load_hosts()
   env.user = 'jmeter'
   env.key_filename = 'files/jmeter-id_rsa'
   env.disable_known_hosts = True
 
+@parallel
 def setup():
     """Setup remote host to run jmeter as a master or slave environment"""
     # Setup requires root privleges
     env.user = "root"
     env.disable_known_hosts = True
     jmeter_version="2.13"
+
+    config = _load_config()
+
+    try:
+      print colors.green("Checking the status of the server")
+      for key in config['servers']:
+        if config['servers'][key]['host'] == env.host:
+          droplet = digitalocean.Droplet(token=config['token'], id=config['servers'][key]['id'])
+          droplet.load()
+          actions = droplet.get_actions()
+          for action in actions:
+            if action.type == 'create' and action.status != 'completed':
+              raise Exception('Cannot continue, server is not active', 'setup')
+          print colors.green("Server is active")
+    except Exception as e:
+      pprint.pprint(e)
+      print colors.red("Failed to load server: %s" % e)
+      return
 
     if not files.exists('/home/jmeter/apache-jmeter/bin/jmeter-server'):
       run('apt-get update; apt-get install unzip openjdk-7-jre-headless snmpd iftop -y')
@@ -182,17 +186,21 @@ def setup():
     run('chown jmeter -R /home/jmeter')
     run('chmod 700 /home/jmeter/.ssh')
 
-def start(jmx):
-  """Start jmeter"""
+def csshx():
   _setup_host()
-  put(jmx, '/home/jmeter')
-  open_shell('./apache-jmeter/bin/jmeter -t "' + os.path.basename(jmx) + '" -n')
+  cmd = '\tcsshX --ssh_args="-o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" ' % os.path.dirname(env.real_fabfile)
+  for h in env.hosts:
+    cmd += ' ' + str(h)
+  print colors.green("Use this command to open up cluster SSH terminals to the cluster: https://github.com/brockgr/csshx")
+  print cmd
 
+@parallel
 def upload(asset):
   """Upload jmeter asset to remote host"""
   _setup_host()
   put(asset, '/home/jmeter')
 
+@parallel
 def download_logs():
   """Download Jmeter logs from the last load test"""
   _setup_host()
@@ -207,13 +215,15 @@ def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1
 
   config = _load_config()
 
+  if 'servers' not in config:
+    config['servers'] = {}
+
   if  not config['token']:
     print colors.red("DigitalOcean API Token is missing from config.")
     return
 
   manager = digitalocean.Manager(token=config['token'])
   droplets = []
-  servers = {}
 
   for i in range(1, n + 1):
     server_name = _server_name(namespace, i, hosting_region)
@@ -230,26 +240,16 @@ def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1
     droplets.append(droplet)
  
   for droplet in droplets:
-    actions = droplet.get_actions()
-    for action in actions:
-      action.load()
-      if (action.type == 'create'):
-        while action.status != "completed":
-          print colors.yellow("Waiting for %s (%s)" % (droplet.name, action.status))
-          time.sleep(5)
-          action.load()
-
-        # Once it shows complete, droplet is up and running
-        print colors.green("%s %s" % (droplet.name, action.status))
-
-    # Reload the droplet which should now have an id and IP
     droplet.load()
-    servers[droplet.name] = {
+
+    # # Reload the droplet which should now have an id and IP
+    # droplet.load()
+    config['servers'][droplet.name] = {
       'host': str(droplet.ip_address),
       'id': int(droplet.id)
     }
 
-  _write_config(data=servers)
+  _write_config(config=config)
 
 def destroy():
   config = _load_config()
@@ -258,23 +258,20 @@ def destroy():
     return
 
   manager = digitalocean.Manager(token=config['token'])
-  servers = {}
 
-  for server in config['cluster']:
-    servers[server] = config[server]
+  for key in config['servers']:
+    server = config['servers'][key]
     try:
-      droplet = manager.get_droplet(config[server]['id'])
+      droplet = manager.get_droplet(server['id'])
       droplet.load()
       droplet.destroy()
-      print colors.green('%s has been actioned to be destroyed.' % server)
-      servers[server] = None
+      print colors.green('%s will be destroyed.' % key)
+      config['servers'].pop(key, None)
     except Exception:
-      print colors.red('Could not destory %s.' % server)
+      print colors.red('Could not destory %s.' % key)
 
-  _write_config(data=servers)
+  _write_config(config=config)
       
 def _server_name(t, i, r):
   prefix = 'j'
   return prefix + str(r) + t + str(i)
-
-# csshX --ssh_args="-o User=jmeter -o IdentityFile=~/LaunchReadiness/CoolMath/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
