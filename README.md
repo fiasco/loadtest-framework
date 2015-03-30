@@ -1,61 +1,92 @@
-loadtest-framework
-==================
+# loadtest-framework
 
-Fabric configuration for a deployable jmeter loadtesting cluster
+Fabric for a deployable jmeter loadtesting cluster on Digital Ocean
 
-Installation
-------------
+## Installation
 
-You'll need [Fabric](http://www.fabfile.org/), a python deployment tool. This can be done through the Python package manager, pip.
+You'll need [Fabric](http://www.fabfile.org/), a python deployment tool,the Digital Ocean library (python-digitalocean) and the YAML parser for Python.
 
 ```
-pip install fabric
+sudo easy_install pip
+sudo pip install Fabric python-digitalocean PyYAML
 ```
 
+Its also recommended that you install [csshX](https://github.com/brockgr/csshx) (or cssh if you're not using Mac)
 
-Usage
------
-Before you use this tool, you need to have your servers available. You should have:
-* 1 master jmeter server
-* 1 or more slave jmeter servers
-* The ability to login to the servers as root
-* All servers are connected via a local network (private networking or other)
-
-### Setup the jmeter servers
-Checkout this repository
+**Tip:** Download and install [Tugboat CLI](https://github.com/pearkes/tugboat) as a quick lookup for the digital ocean API
 
 ```
-git clone git@github.com:fiasco/loadtest-framework.git 
+sudo gem install tugboat
 ```
 
-(Optional) Setup ssh keys to override the ones in this repository as they are insecure since they are openly available.
+## Usage
+
+Create a yaml file called <code>config.yaml</code> in this directory. Inside it, you should put your [Digital Ocean Token](https://www.digitalocean.com/community/tutorials/how-to-use-the-digitalocean-api-v2) and SSH key ID
 
 ```
-cd loadtest-framework
-ssh key-gen -f files/jmeter-id_rsa
+ssh_key: 123456
+token: 77e027c7447f468068a7d4fea41e7149a75a94088082c66fcf555de3977f69d3
 ```
 
-Run setup to install all the tech needed on the servers and the ssh access keys for jmeter.
+Your SSH key ID can be found by visiting the [legacy API page](https://cloud.digitalocean.com/generate_api_key) to find your client ID and API key (version 1). Then a simple cURL request can get your SSH key ID:
 
 ```
-fab -H <jmeter_master>,<jmeter_slave_1>,... setup
+curl -sL 'https://api.digitalocean.com/ssh_keys/?client_id=[CLIENT_ID]&api_key=[API_KEY_V1]'
 ```
 
-### Initialise the Jmeter Slaves
-Kick off the jmeter slaves in screen sessions
+### Create a JMeter Cluster
+
+Creating a cluster is done in two easy steps:
 
 ```
-fab -H <jmeter_slave_1>,... run_slaves
+fab create:cluster_size=2
 ```
 
-### Run the load test on the Jmeter master
-This is going to be better implemented with fabric but for now, obtain ssh command for the jmeter server:
+This will create a two server cluster. There are also other options:
+
+* namespace: used to namespace the names of the servers. Defaults to lr.
+* cluster_size: the number of servers to create in the region. Defaults to 1.
+* hosting_region: the region to deploy the servers to. Defaults to nyc2.
+* server_size: The size of the servers to deploy. Defaults to 1gb.
+
+The create command will write the created servers to the config.yaml file. You can run the command multiple times to deploy multiple servers into different regions or namespaces.
+
+Once a cluster of servers has been created, a command called "cluster" can be used in fabric to run commands in parallel on the servers.
 
 ```
-fab -H <jmeter_master> ssh
-ssh -i files/jmeter-id_rsa jmeter@<jmeter_master>
-screen
-./apache-jmeter/bin/jmeter -t <loadtest>.jmx -n -R <jmeter_slave_1_internal_ip>,....
+fab cluster setup
 ```
 
+This command should install all the requirements onto the servers to allow JMeter to run. Here is what it does at a high level:
 
+* Install Java
+* Install JMeter
+* Create JMeter user
+* Create JMeter directories (home, log)
+* Setup password-less SSH access
+
+Now you're all setup to run JMeter as a cluster.
+
+### Running a Test
+
+Once you've created a test, you'll want to upload it to all the servers and run it.
+
+```
+fab cluster upload:TestPlan.jmx
+```
+
+The above command will upload the Test Plan file, TestPlan.jmx to the servers in parallel.
+
+```
+fab csshx
+```
+
+This will output a csshX command that you can run to deploy a cluster of shells that can be commanded by a single red terminal. We'll use this to execute the load test.
+
+On the JMeter servers:
+
+```
+./apache-jmeter/bin/jmeter -n -t TestPlan.jmx
+```
+
+This will kick off the test and run each JMeter server independently.
