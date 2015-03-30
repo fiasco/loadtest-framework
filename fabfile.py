@@ -117,21 +117,6 @@ def _setup(task):
 
 @_setup
 
-@parallel
-def debug():
-  config = _load_config()
-  # pprint.pprint(config)
-  try:
-    droplet = digitalocean.Droplet(token=config['token'], id=env.id)
-    droplet.load()
-    actions = droplet.get_actions()
-    for action in actions:
-      if action.type == 'create' and action.status == 'completed':
-        print colors.green("%s %s %s" % (droplet.name, action.type, action.status))
-  except Exception:
-    print colors.red("Failed to load server.")
-    pass
-
 def _setup_host():
   _load_hosts()
   env.user = 'jmeter'
