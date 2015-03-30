@@ -122,6 +122,7 @@ def _setup_host():
   env.user = 'jmeter'
   env.key_filename = 'files/jmeter-id_rsa'
   env.disable_known_hosts = True
+  env.forward_agent = True
 
 @parallel
 def setup():
@@ -150,7 +151,7 @@ def setup():
       return
 
     if not files.exists('/home/jmeter/apache-jmeter/bin/jmeter-server'):
-      run('apt-get update; apt-get install unzip openjdk-7-jre-headless snmpd iftop -y')
+      run('apt-get update; apt-get install git-all unzip openjdk-7-jre-headless snmpd iftop -y')
       run('id jmeter > /dev/null 2&>1 || adduser jmeter --disabled-password --system --shell /bin/bash')
       run('test -f /home/jmeter/apache-jmeter-' + jmeter_version + '.tgz || wget -P /home/jmeter http://www.webhostingjams.com/mirror/apache//jmeter/binaries/apache-jmeter-' + jmeter_version + '.tgz')
       run('tar -C /home/jmeter/ -xf /home/jmeter/apache-jmeter-' + jmeter_version + '.tgz;')
@@ -171,6 +172,9 @@ def setup():
     run('chown jmeter -R /home/jmeter')
     run('chmod 700 /home/jmeter/.ssh')
 
+    if not files.exists('/home/jmeter/.ssh/config'):
+      run('echo -e "StrictHostKeyChecking no\n" > /home/jmeter/.ssh/config')
+
 def csshx():
   _setup_host()
   cmd = '\tcsshX --ssh_args="-o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" ' % os.path.dirname(env.real_fabfile)
@@ -178,6 +182,21 @@ def csshx():
     cmd += ' ' + str(h)
   print colors.green("Use this command to open up cluster SSH terminals to the cluster: https://github.com/brockgr/csshx")
   print cmd
+
+@parallel
+def git_clone(repo, branch='master', project='testplan'):
+  _setup_host()
+  run('git clone -b %s %s %s' % (branch, repo, project))
+
+@parallel
+def git_pull(project='testplan'):
+  _setup_host()
+  run('cd %s && git pull' % project)
+
+@parallel
+def git_checkout(ref='master', project='testplan'):
+  _setup_host()
+  run('cd %s && git checkout -b %s' % (project, ref))
 
 @parallel
 def upload(asset):
