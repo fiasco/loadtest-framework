@@ -28,11 +28,11 @@ ssh_key: 123456
 token: 77e027c7447f468068a7d4fea41e7149a75a94088082c66fcf555de3977f69d3
 ```
 
-Your SSH key ID can be found by visiting the [legacy API page](https://cloud.digitalocean.com/generate_api_key) to find your client ID and API key (version 1). Then a simple cURL request can get your SSH key ID:
-
+Your SSH key ID can be found by using this cURL command with *your* token:
 ```
-curl -sL 'https://api.digitalocean.com/ssh_keys/?client_id=[CLIENT_ID]&api_key=[API_KEY_V1]'
+curl -X GET -H 'Content-Type: application/json' -H 'Authorization: Bearer 77e027c7447f468068a7d4fea41e7149a75a94088082c66fcf555de3977f69d3' "https://api.digitalocean.com/v2/account/keys"
 ```
+*Note:* This returns in JSON so you'll need to read through the formatting to find the correct ID value.
 
 ### Create a JMeter Cluster
 
