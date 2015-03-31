@@ -164,7 +164,7 @@ def setup():
 
       put('files/jmeter-server', '/home/jmeter/apache-jmeter/bin/jmeter-server')
       put('files/jmeter', '/home/jmeter/apache-jmeter/bin/jmeter')
-      run('ln -s /home/jmeter/apache-jmeter/bin/jmeter /usr/bin/jmeter')
+      run('ln -s /home/jmeter/apache-jmeter/bin/jmeter /usr/local/bin/jmeter')
 
     run('mkdir -p /home/jmeter/.ssh/')
     put('files/jmeter-id_rsa.pub', '/home/jmeter/.ssh/authorized_keys')
