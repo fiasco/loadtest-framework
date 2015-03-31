@@ -69,13 +69,19 @@ Now you're all setup to run JMeter as a cluster.
 
 ### Running a Test
 
-Once you've created a test, you'll want to upload it to all the servers and run it.
+Once you've created a test, you'll want to upload it to all the servers and run it. You can either manually upload the JMeter JMX file:
 
 ```
 fab cluster upload:TestPlan.jmx
 ```
 
-The above command will upload the Test Plan file, TestPlan.jmx to the servers in parallel.
+Or, alternatively you can clone a git repository on the servers (this is useful if your test plan for example uses CSV files):
+
+```
+fab cluster git_clone:git@github.com:wiifm69/loadtest-files.git
+```
+
+The above commands will upload the test plan file <code>TestPlan.jmx</code> to the servers in parallel.
 
 ```
 fab csshx
@@ -90,3 +96,19 @@ On the JMeter servers:
 ```
 
 This will kick off the test and run each JMeter server independently.
+
+### Download the logs and clean up
+
+After the test is complete and you want to get access to the results
+
+```
+fab cluster download_logs
+```
+
+An finally to destroy the servers
+
+```
+fab cluster destroy
+```
+
+The log files will now be locally stored, and you can concatenate them together and then open in JMeter.
