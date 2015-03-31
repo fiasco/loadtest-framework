@@ -11,6 +11,7 @@ import digitalocean
 import re
 import pprint
 import time
+import copy
 
 
 
@@ -246,6 +247,13 @@ def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1
   for droplet in droplets:
     droplet.load()
 
+    while not droplet.ip_address:
+      print colors.yellow("Waiting for %s to be assigned IP address" % droplet.name)
+      time.sleep(5)
+      droplet.load()
+
+    print colors.green("%s assigned %s" % (droplet.name, droplet.ip_address))
+      
     # # Reload the droplet which should now have an id and IP
     # droplet.load()
     config['servers'][droplet.name] = {
@@ -263,16 +271,18 @@ def destroy():
 
   manager = digitalocean.Manager(token=config['token'])
 
-  for key in config['servers']:
+  servers = copy.copy(config['servers'])
+
+  for key in servers:
     server = config['servers'][key]
     try:
       droplet = manager.get_droplet(server['id'])
       droplet.load()
       droplet.destroy()
       print colors.green('%s will be destroyed.' % key)
-      config['servers'].pop(key, None)
     except Exception:
       print colors.red('Could not destory %s.' % key)
+    config['servers'].pop(key, None)
 
   _write_config(config=config)
       
