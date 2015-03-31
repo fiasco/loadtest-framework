@@ -61,7 +61,7 @@ def _write_config(config):
 
 def _load_hosts():
   config = _load_config()
-  if 'servers' in config:
+  if 'servers' in config and config['servers']:
     env.group = {}
     for key in config['servers']:
       server = config['servers'][key]
@@ -71,7 +71,7 @@ def _load_hosts():
     print colors.yellow("No hosts found to load.")
 
 def cluster():
-  """Setup the cluster for parallel commands"""
+  """Setup the cluster for parallel commands, in general you should always run this task before any other"""
   _load_hosts()
   env.parallel = True
 
@@ -127,7 +127,7 @@ def _setup_host():
 
 @parallel
 def setup():
-    """Setup remote host to run jmeter as a master or slave environment"""
+    """Setup remote host to run JMeter as a master or slave environment"""
     # Setup requires root privleges
     env.user = "root"
     env.disable_known_hosts = True
@@ -159,14 +159,12 @@ def setup():
       run('test -d /home/jmeter/apache-jmeter || mv /home/jmeter/apache-jmeter-' + jmeter_version + ' /home/jmeter/apache-jmeter')
       run('test -f home/jmeter/JMeterPlugins-Standard-1.1.3.zip || wget -P /home/jmeter http://jmeter-plugins.org/downloads/file/JMeterPlugins-Standard-1.1.3.zip')
       run('unzip -o /home/jmeter/JMeterPlugins-Standard-1.1.3.zip -d /home/jmeter/apache-jmeter/')
-      # run('test -f /home/jmeter/groovy-binary-2.4.0-beta-3.zip || wget -P /home/jmeter http://dl.bintray.com/groovy/maven/groovy-binary-2.4.0-beta-3.zip')
-      # run('unzip -o /home/jmeter/groovy-binary-2.4.0-beta-3.zip -d /home/jmeter/')
-      # run('cp /home/jmeter/groovy-2.4.0-beta-3/lib/* /home/jmeter/apache-jmeter/lib/ext/')
 
       run('mkdir -p /var/log/jmeter; chown jmeter /var/log/jmeter')
 
       put('files/jmeter-server', '/home/jmeter/apache-jmeter/bin/jmeter-server')
       put('files/jmeter', '/home/jmeter/apache-jmeter/bin/jmeter')
+      run('ln -s /home/jmeter/apache-jmeter/bin/jmeter /usr/bin/jmeter')
 
     run('mkdir -p /home/jmeter/.ssh/')
     put('files/jmeter-id_rsa.pub', '/home/jmeter/.ssh/authorized_keys')
@@ -177,6 +175,7 @@ def setup():
       run('echo -e "StrictHostKeyChecking no\n" > /home/jmeter/.ssh/config')
 
 def csshx():
+  """Outputs a command you can run to cluster SSH into all servers"""
   _setup_host()
   cmd = '\tcsshX --ssh_args="-o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" ' % os.path.dirname(env.real_fabfile)
   for h in env.hosts:
@@ -186,28 +185,31 @@ def csshx():
 
 @parallel
 def git_clone(repo, branch='master', project='testplan'):
+  """Clones a repository using git, defaults to the master branch, and testplan folder"""
   _setup_host()
   run('git clone -b %s %s %s' % (branch, repo, project))
 
 @parallel
 def git_pull(project='testplan'):
+  """Pulls in latest updates into a git repository, defaults to the testplan folder"""
   _setup_host()
   run('cd %s && git pull' % project)
 
 @parallel
 def git_checkout(ref='master', project='testplan'):
+  """Checks out a branch in a git repository, defaults to the master branch and testplan folder"""
   _setup_host()
   run('cd %s && git checkout -b %s' % (project, ref))
 
 @parallel
 def upload(asset):
-  """Upload jmeter asset to remote host"""
+  """Upload JMeter asset to remote host"""
   _setup_host()
   put(asset, '/home/jmeter')
 
 @parallel
 def download_logs():
-  """Download Jmeter logs from the last load test"""
+  """Download JMeter logs from the last load test"""
   _setup_host()
   local('mkdir %s' % env.host)
   run('gzip -9 /var/log/jmeter/*.jtl')
@@ -215,7 +217,7 @@ def download_logs():
   run('rm /var/log/jmeter/*.gz')
 
 def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1gb'):
-  """Create serverson DigitalOcean to become jmeter servers"""
+  """Create servers on DigitalOcean to become JMeter servers"""
   n = int(cluster_size)
 
   config = _load_config()
@@ -243,7 +245,7 @@ def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1
     print colors.green("Creating %s...." % server_name)
     droplet.create()
     droplets.append(droplet)
- 
+
   for droplet in droplets:
     droplet.load()
 
@@ -253,7 +255,7 @@ def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1
       droplet.load()
 
     print colors.green("%s assigned %s" % (droplet.name, droplet.ip_address))
-      
+
     # # Reload the droplet which should now have an id and IP
     # droplet.load()
     config['servers'][droplet.name] = {
@@ -264,6 +266,7 @@ def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1
   _write_config(config=config)
 
 def destroy():
+  """Tear down and remove the servers"""
   config = _load_config()
   if  not config['token']:
     print colors.red("DigitalOcean API Token is missing from config.")
@@ -285,7 +288,7 @@ def destroy():
     config['servers'].pop(key, None)
 
   _write_config(config=config)
-      
+
 def _server_name(t, i, r):
   prefix = 'j'
   return prefix + str(r) + t + str(i)

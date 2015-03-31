@@ -8,7 +8,7 @@ You'll need [Fabric](http://www.fabfile.org/), a python deployment tool,the Digi
 
 ```
 sudo easy_install pip
-sudo pip install Fabric python-digitalocean PyYAML
+sudo pip install Fabric python-digitalocean PyYAML pyopenssl ndg-httpsclient pyasn1
 ```
 
 Its also recommended that you install [csshX](https://github.com/brockgr/csshx) (or cssh if you're not using Mac)
@@ -92,7 +92,7 @@ This will output a csshX command that you can run to deploy a cluster of shells 
 On the JMeter servers:
 
 ```
-./apache-jmeter/bin/jmeter -n -t TestPlan.jmx
+jmeter -n -t ~/TestPlan.jmx
 ```
 
 This will kick off the test and run each JMeter server independently.
