@@ -119,4 +119,4 @@ find . |  grep gz | xargs cat > all.gz && gunzip all.gz && mv all jmeter-logs.jt
 
 Then you can open the jmeter-logs.jtl file in JMeter, the transactions per second graph is very interesting to view:
 
-![transactions per second graph example](images/transactions-per-second.png)
+![transactions per second graph example](images/transaction-per-second.png)
