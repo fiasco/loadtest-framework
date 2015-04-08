@@ -111,4 +111,12 @@ An finally to destroy the servers
 fab cluster destroy
 ```
 
-The log files will now be locally stored, and you can concatenate them together and then open in JMeter.
+The log files will now be locally stored, and you can concatenate them together:
+
+```
+find . |  grep gz | xargs cat > all.gz && gunzip all.gz && mv all jmeter-logs.jtl
+```
+
+Then you can open the jmeter-logs.jtl file in JMeter, the transactions per second graph is very interesting to view:
+
+![transactions per second graph example](images/transactions-per-second.png)
