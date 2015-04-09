@@ -39,14 +39,23 @@ curl -X GET -H 'Content-Type: application/json' -H 'Authorization: Bearer 77e027
 Creating a cluster is done in two easy steps:
 
 ```
-fab create:cluster_size=2
+fab create:cluster_size=4,hosting_region=nyc2
 ```
 
-This will create a two server cluster. There are also other options:
+This will create a four server cluster. There are also other options:
 
 * namespace: used to namespace the names of the servers. Defaults to lr.
 * cluster_size: the number of servers to create in the region. Defaults to 1.
-* hosting_region: the region to deploy the servers to. Defaults to nyc2.
+* hosting_region: the region to deploy the servers to. Defaults to nyc2. Other options include:
+  * nyc1
+  * nyc2
+  * nyc3
+  * sfo1
+  * ams1
+  * ams2
+  * ams3
+  * sgp1
+  * lon1
 * server_size: The size of the servers to deploy. Defaults to 1gb.
 
 The create command will write the created servers to the config.yaml file. You can run the command multiple times to deploy multiple servers into different regions or namespaces.
