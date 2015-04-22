@@ -288,6 +288,13 @@ def destroy():
 
   _write_config(config=config)
 
+def set_dns(hostname, ip):
+  """Add a host entry to the /etc/hosts file"""
+  env.user = 'root'
+  env.disable_known_hosts = True
+  env.forward_agent = True
+  run('echo "%s %s" >> /etc/hosts' % (ip, hostname))
+
 def _server_name(t, i, r):
   prefix = 'j'
   return prefix + str(r) + t + str(i)
