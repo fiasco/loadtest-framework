@@ -1,3 +1,0 @@
-/var/log/jmeter/loadtest.log {
-        rotate 100
-}

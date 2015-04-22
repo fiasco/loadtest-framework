@@ -33,7 +33,7 @@ def _load_config(**kwargs):
     'server_config.yaml' or 'server_config.json' file.
 
     """
-    config_filename = 'config.yaml'
+    config_filename = '%s/config.yaml' % os.path.dirname(env.fabfile)
 
     if not os.path.exists(config_filename):
         print colors.red('Error. "%s" file not found.' % (config_filename))
@@ -121,7 +121,7 @@ def _setup(task):
 def _setup_host():
   _load_hosts()
   env.user = 'jmeter'
-  env.key_filename = 'files/jmeter-id_rsa'
+  env.key_filename = '%s/files/jmeter-id_rsa' % os.path.dirname(env.fabfile)
   env.disable_known_hosts = True
   env.forward_agent = True
 
@@ -154,7 +154,7 @@ def setup():
     if not files.exists('/home/jmeter/apache-jmeter/bin/jmeter-server'):
       run('apt-get update; apt-get install git-all unzip openjdk-7-jre-headless snmpd iftop -y')
       run('id jmeter > /dev/null 2&>1 || adduser jmeter --disabled-password --system --shell /bin/bash')
-      run('test -f /home/jmeter/apache-jmeter-' + jmeter_version + '.tgz || wget -P /home/jmeter http://www.webhostingjams.com/mirror/apache//jmeter/binaries/apache-jmeter-' + jmeter_version + '.tgz')
+      run('test -f /home/jmeter/apache-jmeter-' + jmeter_version + '.tgz || wget -P /home/jmeter http://apache.mirrors.ionfish.org//jmeter/binaries/apache-jmeter-' + jmeter_version + '.tgz')
       run('tar -C /home/jmeter/ -xf /home/jmeter/apache-jmeter-' + jmeter_version + '.tgz;')
       run('test -d /home/jmeter/apache-jmeter || mv /home/jmeter/apache-jmeter-' + jmeter_version + ' /home/jmeter/apache-jmeter')
       run('test -f home/jmeter/JMeterPlugins-Standard-1.1.3.zip || wget -P /home/jmeter http://jmeter-plugins.org/downloads/file/JMeterPlugins-Standard-1.1.3.zip')
@@ -162,12 +162,11 @@ def setup():
 
       run('mkdir -p /var/log/jmeter; chown jmeter /var/log/jmeter')
 
-      put('files/jmeter-server', '/home/jmeter/apache-jmeter/bin/jmeter-server')
-      put('files/jmeter', '/home/jmeter/apache-jmeter/bin/jmeter')
+      put('%s/files/jmeter' % os.path.dirname(env.fabfile), '/home/jmeter/apache-jmeter/bin/jmeter')
       run('ln -s /home/jmeter/apache-jmeter/bin/jmeter /usr/local/bin/jmeter')
 
     run('mkdir -p /home/jmeter/.ssh/')
-    put('files/jmeter-id_rsa.pub', '/home/jmeter/.ssh/authorized_keys')
+    put('%s/files/jmeter-id_rsa.pub' % os.path.dirname(env.fabfile), '/home/jmeter/.ssh/authorized_keys')
     run('chown jmeter -R /home/jmeter')
     run('chmod 700 /home/jmeter/.ssh')
 
@@ -177,7 +176,7 @@ def setup():
 def csshx():
   """Outputs a command you can run to cluster SSH into all servers"""
   _setup_host()
-  cmd = '\tcsshX --ssh_args="-o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" ' % os.path.dirname(env.real_fabfile)
+  cmd = '\tcsshX --ssh_args="-o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" ' % os.path.dirname(env.fabfile)
   for h in env.hosts:
     cmd += ' ' + str(h)
   print colors.green("Use this command to open up cluster SSH terminals to the cluster: https://github.com/brockgr/csshx")
