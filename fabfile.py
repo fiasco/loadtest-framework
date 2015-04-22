@@ -158,7 +158,9 @@ def setup():
       run('tar -C /home/jmeter/ -xf /home/jmeter/apache-jmeter-' + jmeter_version + '.tgz;')
       run('test -d /home/jmeter/apache-jmeter || mv /home/jmeter/apache-jmeter-' + jmeter_version + ' /home/jmeter/apache-jmeter')
       run('test -f home/jmeter/JMeterPlugins-Standard-1.1.3.zip || wget -P /home/jmeter http://jmeter-plugins.org/downloads/file/JMeterPlugins-Standard-1.1.3.zip')
+      run('test -f home/jmeter/JMeterPlugins-Extras-1.2.1.zip || wget -P /home/jmeter http://jmeter-plugins.org/downloads/file/JMeterPlugins-Extras-1.2.1.zip')
       run('unzip -o /home/jmeter/JMeterPlugins-Standard-1.1.3.zip -d /home/jmeter/apache-jmeter/')
+      run('unzip -o /home/jmeter/JMeterPlugins-Extras-1.2.1.zip -d /home/jmeter/apache-jmeter/')
 
       run('mkdir -p /var/log/jmeter; chown jmeter /var/log/jmeter')
 
