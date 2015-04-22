@@ -152,7 +152,7 @@ def setup():
       return
 
     if not files.exists('/home/jmeter/apache-jmeter/bin/jmeter-server'):
-      run('apt-get update; apt-get install git-all unzip openjdk-7-jre-headless snmpd iftop -y')
+      run('apt-get update > /dev/null; apt-get install git-all unzip openjdk-7-jre-headless snmpd iftop -y > /dev/null')
       run('id jmeter > /dev/null 2&>1 || adduser jmeter --disabled-password --system --shell /bin/bash')
       run('test -f /home/jmeter/apache-jmeter-' + jmeter_version + '.tgz || wget -P /home/jmeter http://apache.mirrors.ionfish.org//jmeter/binaries/apache-jmeter-' + jmeter_version + '.tgz')
       run('tar -C /home/jmeter/ -xf /home/jmeter/apache-jmeter-' + jmeter_version + '.tgz;')
