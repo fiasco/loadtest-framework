@@ -4,6 +4,7 @@ from fabric.api import *
 from fabric.utils import puts
 from fabric import colors
 from fabric.contrib import files
+from fabric.contrib import console
 import fabric.network
 import fabric.state
 import fabric.operations
@@ -33,7 +34,7 @@ def _load_config(**kwargs):
     'server_config.yaml' or 'server_config.json' file.
 
     """
-    config_filename = '%s/config.yaml' % os.path.dirname(env.fabfile)
+    config_filename = '%s/config.yaml' % os.path.dirname(env.real_fabfile)
 
     if not os.path.exists(config_filename):
         print colors.red('Error. "%s" file not found.' % (config_filename))
@@ -48,7 +49,7 @@ def _load_config(**kwargs):
         return loader.load(config_file)
 
 def _write_config(config):
-    config_filename = 'config.yaml'
+    config_filename = '%s/config.yaml' % os.path.dirname(env.real_fabfile)
 
     if YAML_AVAILABLE:
         loader = yaml
@@ -67,12 +68,16 @@ def _load_hosts():
       server = config['servers'][key]
       env.group[server['host']] = server
     env.hosts = env.group.keys()
+    return config['servers']
   else:
     print colors.yellow("No hosts found to load.")
+    return []
 
+@task(alias='go')
 def cluster():
   """Setup the cluster for parallel commands, in general you should always run this task before any other"""
-  _load_hosts()
+    
+  print colors.cyan('Running cluster: %s' % ', '.join(_load_hosts().keys()))
   env.parallel = True
 
 def hosts():
@@ -121,11 +126,12 @@ def _setup(task):
 def _setup_host():
   _load_hosts()
   env.user = 'jmeter'
-  env.key_filename = '%s/files/jmeter-id_rsa' % os.path.dirname(env.fabfile)
+  env.key_filename = '%s/files/jmeter-id_rsa' % os.path.dirname(env.real_fabfile)
   env.disable_known_hosts = True
   env.forward_agent = True
 
 @parallel
+@task(alias='setUp')
 def setup():
     """Setup remote host to run JMeter as a master or slave environment"""
     # Setup requires root privleges
@@ -164,61 +170,79 @@ def setup():
 
       run('mkdir -p /var/log/jmeter; chown jmeter /var/log/jmeter')
 
-      put('%s/files/jmeter' % os.path.dirname(env.fabfile), '/home/jmeter/apache-jmeter/bin/jmeter')
+      put('%s/files/jmeter' % os.path.dirname(env.real_fabfile), '/home/jmeter/apache-jmeter/bin/jmeter')
       run('ln -s /home/jmeter/apache-jmeter/bin/jmeter /usr/local/bin/jmeter')
 
     run('mkdir -p /home/jmeter/.ssh/')
-    put('%s/files/jmeter-id_rsa.pub' % os.path.dirname(env.fabfile), '/home/jmeter/.ssh/authorized_keys')
+    put('%s/files/jmeter-id_rsa.pub' % os.path.dirname(env.real_fabfile), '/home/jmeter/.ssh/authorized_keys')
     run('chown jmeter -R /home/jmeter')
     run('chmod 700 /home/jmeter/.ssh')
 
     if not files.exists('/home/jmeter/.ssh/config'):
       run('echo -e "StrictHostKeyChecking no\n" > /home/jmeter/.ssh/config')
 
+@task
 def csshx():
   """Outputs a command you can run to cluster SSH into all servers"""
   _setup_host()
-  cmd = '\tcsshX --ssh_args="-o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" ' % os.path.dirname(env.fabfile)
+  cmd = '\tcsshX --ssh_args="-o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" ' % os.path.dirname(env.real_fabfile)
   for h in env.hosts:
     cmd += ' ' + str(h)
   print colors.green("Use this command to open up cluster SSH terminals to the cluster: https://github.com/brockgr/csshx")
   print cmd
 
+@task
+def ssh():
+  """List SSH commands to access servers"""
+  print colors.green("SSH commands to access servers in the cluster:")
+  for h in env.hosts:
+    print 'ssh -o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no %s' % str(h)
+
 @parallel
+@task(alias='gitClone')
 def git_clone(repo, branch='master', project='testplan'):
-  """Clones a repository using git, defaults to the master branch, and testplan folder"""
+  """(repo,branch,project) Clones a repository using git, defaults to the master branch, and testplan folder"""
   _setup_host()
   run('git clone -b %s %s %s' % (branch, repo, project))
 
 @parallel
+@task(alias='gitPull')
 def git_pull(project='testplan'):
-  """Pulls in latest updates into a git repository, defaults to the testplan folder"""
+  """(project) Pulls in latest updates into a git repository, defaults to the testplan folder"""
   _setup_host()
   run('cd %s && git pull' % project)
 
 @parallel
+@task(alias='gitCheckout')
 def git_checkout(ref='master', project='testplan'):
-  """Checks out a branch in a git repository, defaults to the master branch and testplan folder"""
+  """(ref,project) Checks out a branch in a git repository, defaults to the master branch and testplan folder"""
   _setup_host()
   run('cd %s && git checkout -b %s' % (project, ref))
 
 @parallel
+@task
 def upload(asset):
-  """Upload JMeter asset to remote host"""
+  """(asset) Upload JMeter asset to remote host"""
   _setup_host()
   put(asset, '/home/jmeter')
 
 @parallel
-def download_logs():
-  """Download JMeter logs from the last load test"""
+@task(alias="downloadLogs")
+def download_logs(log_dir="/var/log/jmeter"):
+  """(log_dir) Download JMeter logs from the last load test"""
   _setup_host()
   local('mkdir %s' % env.host)
-  run('gzip -9 /var/log/jmeter/*.jtl')
-  get('/var/log/jmeter/*.gz', '%s/' % env.host)
-  run('rm /var/log/jmeter/*.gz')
+  run('gzip -9 %s/*.jtl' % log_dir)
+  get('%s/*.gz', '%s/' % (log_dir, env.host))
+  run('rm %s/*.gz' % log_dir)
 
+@task(alias="spinUp")
 def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1gb'):
-  """Create servers on DigitalOcean to become JMeter servers"""
+  """(namespace,cluster_size,hosting_region,server_size) Create servers on DigitalOcean to become JMeter servers"""
+
+  if not console.confirm(colors.blue("You're about to spin up %dx %s servers in %s region. Are you sure?" % (cluster_size, server_size, hosting_region))): 
+    abort("Aborting at user request")
+
   n = int(cluster_size)
 
   config = _load_config()
@@ -266,8 +290,13 @@ def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1
 
   _write_config(config=config)
 
+@task(alias='tearDown')
 def destroy():
-  """Tear down and remove the servers"""
+  """Tear down and remove all servers in the cluster"""
+
+  if not console.confirm(colors.red("You're about to ALL the servers in the cluster. Are you sure?")): 
+    abort("Aborting at user request")
+
   config = _load_config()
   if  not config['token']:
     print colors.red("DigitalOcean API Token is missing from config.")
@@ -290,8 +319,9 @@ def destroy():
 
   _write_config(config=config)
 
+@task(alias='setDNS')
 def set_dns(hostname, ip):
-  """Add a host entry to the /etc/hosts file"""
+  """(hostname, ip) Add a host entry to the /etc/hosts file"""
   env.user = 'root'
   env.disable_known_hosts = True
   env.forward_agent = True
