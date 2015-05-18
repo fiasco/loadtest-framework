@@ -130,7 +130,6 @@ def _setup_host():
   env.disable_known_hosts = True
   env.forward_agent = True
 
-@parallel
 @task(alias='setUp')
 def setup():
     """Setup remote host to run JMeter as a master or slave environment"""
@@ -194,47 +193,47 @@ def csshx():
 @task
 def ssh():
   """List SSH commands to access servers"""
-  print colors.green("SSH commands to access servers in the cluster:")
-  for h in env.hosts:
-    print 'ssh -o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no %s' % str(h)
+  print colors.green('  ssh -o User=jmeter -o IdentityFile=%s/files/jmeter-id_rsa  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no %s' % (os.path.dirname(env.real_fabfile), str(env.host)))
 
-@parallel
 @task(alias='gitClone')
 def git_clone(repo, branch='master', project='testplan'):
   """(repo,branch,project) Clones a repository using git, defaults to the master branch, and testplan folder"""
   _setup_host()
   run('git clone -b %s %s %s' % (branch, repo, project))
 
-@parallel
 @task(alias='gitPull')
 def git_pull(project='testplan'):
   """(project) Pulls in latest updates into a git repository, defaults to the testplan folder"""
   _setup_host()
   run('cd %s && git pull' % project)
 
-@parallel
 @task(alias='gitCheckout')
 def git_checkout(ref='master', project='testplan'):
   """(ref,project) Checks out a branch in a git repository, defaults to the master branch and testplan folder"""
   _setup_host()
   run('cd %s && git checkout -b %s' % (project, ref))
 
-@parallel
 @task
 def upload(asset):
   """(asset) Upload JMeter asset to remote host"""
   _setup_host()
   put(asset, '/home/jmeter')
 
-@parallel
 @task(alias="downloadLogs")
 def download_logs(log_dir="/var/log/jmeter"):
   """(log_dir) Download JMeter logs from the last load test"""
   _setup_host()
   local('mkdir %s' % env.host)
   run('gzip -9 %s/*.jtl' % log_dir)
-  get('%s/*.gz', '%s/' % (log_dir, env.host))
+  get('%s/*.gz' % log_dir, '%s/' % env.host)
   run('rm %s/*.gz' % log_dir)
+
+@task
+def download(path):
+  """Download a filepath location from the server"""
+  _setup_host()
+  local('mkdir %s' % env.host)
+  get(path, '%s/' % env.host)
 
 @task(alias="spinUp")
 def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1gb'):
