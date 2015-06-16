@@ -239,7 +239,7 @@ def download(path):
 def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1gb'):
   """(namespace,cluster_size,hosting_region,server_size) Create servers on DigitalOcean to become JMeter servers"""
 
-  if not console.confirm(colors.blue("You're about to spin up %dx %s servers in %s region. Are you sure?" % (cluster_size, server_size, hosting_region))): 
+  if not console.confirm(colors.blue("You're about to spin up %sx %s servers in %s region. Are you sure?" % (cluster_size, server_size, hosting_region))): 
     abort("Aborting at user request")
 
   n = int(cluster_size)
