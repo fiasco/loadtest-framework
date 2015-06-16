@@ -76,7 +76,7 @@ def _load_hosts():
 @task(alias='go')
 def cluster():
   """Setup the cluster for parallel commands, in general you should always run this task before any other"""
-    
+
   print colors.cyan('Running cluster: %s' % ', '.join(_load_hosts().keys()))
   env.parallel = True
 
@@ -236,10 +236,10 @@ def download(path):
   get(path, '%s/' % env.host)
 
 @task(alias="spinUp")
-def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1gb'):
+def create(namespace="lr", cluster_size='1', hosting_region='nyc2', server_size='1gb'):
   """(namespace,cluster_size,hosting_region,server_size) Create servers on DigitalOcean to become JMeter servers"""
 
-  if not console.confirm(colors.blue("You're about to spin up %sx %s servers in %s region. Are you sure?" % (cluster_size, server_size, hosting_region))): 
+  if not console.confirm(colors.blue("You're about to spin up %dx %s servers in %s region. Are you sure?" % (int(cluster_size), server_size, hosting_region))):
     abort("Aborting at user request")
 
   n = int(cluster_size)
@@ -293,7 +293,7 @@ def create(namespace="lr", cluster_size=1, hosting_region='nyc2', server_size='1
 def destroy():
   """Tear down and remove all servers in the cluster"""
 
-  if not console.confirm(colors.red("You're about to ALL the servers in the cluster. Are you sure?")): 
+  if not console.confirm(colors.red("You're about to ALL the servers in the cluster. Are you sure?")):
     abort("Aborting at user request")
 
   config = _load_config()
